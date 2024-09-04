@@ -27,6 +27,13 @@
 # Output: several Pandas DataFrames, each with the estimated number of people
 # alive from X year of birth in Y current year (male and female).
 
+# UPDATE NOTES: I originally set this up to handle the data in a pretty messy
+# way, but it's worth keeping the same Excel files that I copied over manually.
+# The HTML they came from is reasonably messy, but the main reason is that any
+# update to this data should REALLY go find a new reference source! Covid has
+# had a serious impact on life expectancy, and these old survival rates are not
+# very accurate now.
+
 
 import pandas as pd
 import numpy as np
@@ -35,65 +42,39 @@ import matplotlib.pyplot as plt
 yearlist = [1900, 1910, 1920, 1930, 1940, 1950, 1960, 1970, 1980, 1990,
             2000, 2010, 2020, 2030, 2040, 2050]
 
-# Load files for the cohort data:
+# Load files for the Cohort data:
 lifelist = []
 for year in yearlist:
     templife = pd.read_excel('./actuarialdata/Table_7_' + str(year) + '.xlsx')
     lifelist.append(templife)
 
-# Repeat for the period data:
+# Repeat for the Period data:
 lifelist_p = []
 for year in yearlist:
     templife = pd.read_excel('./actuarialdata/Table_6_' + str(year) + '.xlsx')
     lifelist_p.append(templife)
 
-life_M_df = pd.DataFrame()
-life_F_df = pd.DataFrame()
 
-life_M_p_df = pd.DataFrame()
-life_F_p_df = pd.DataFrame()
+life_M_df = pd.DataFrame(columns=yearlist)
+life_F_df = pd.DataFrame(columns=yearlist)
+life_M_p_df = pd.DataFrame(columns=yearlist)
+life_F_p_df = pd.DataFrame(columns=yearlist)
 
-# (not efficiently concatenated, but whole file takes like 10 seconds)
-# TODO (low priority): Update this to concatenate after loop, cleaner and faster
-
-for templist, year in zip(lifelist, yearlist):
+for templist, templist_p, year in zip(lifelist, lifelist_p, yearlist):
     # print(year)
-    subdf = pd.DataFrame()
-    subdf[year] = templist.iloc[3:, 2]
-    subdf = subdf.dropna().reset_index()
-    subdf = subdf.drop('index', axis=1)
 
-    life_M_df = pd.concat([life_M_df, subdf], axis=1)
-
-    subdf = pd.DataFrame()
-    subdf[year] = templist.iloc[3:, 10]
-    subdf = subdf.dropna().reset_index()
-    subdf = subdf.drop('index', axis=1)
-
-    life_F_df = pd.concat([life_F_df, subdf], axis=1)
-
-print('')
-for templist, year in zip(lifelist_p, yearlist):
-    # print(year)
-    subdf = pd.DataFrame()
-    subdf[year] = templist.iloc[3:, 2]
-    subdf = subdf.dropna().reset_index()
-    subdf = subdf.drop('index', axis=1)
-
-    life_M_p_df = pd.concat([life_M_p_df, subdf], axis=1)
-
-    subdf = pd.DataFrame()
-    subdf[year] = templist.iloc[3:, 10]
-    subdf = subdf.dropna().reset_index()
-    subdf = subdf.drop('index', axis=1)
-
-    life_F_p_df = pd.concat([life_F_p_df, subdf], axis=1)
+    life_M_df[year] = templist.iloc[3:, 2].dropna().reset_index(drop=True)
+    life_F_df[year] = templist.iloc[3:, 10].dropna().reset_index(drop=True)
+    life_M_p_df[year] = templist_p.iloc[3:, 2].dropna().reset_index(drop=True)
+    life_F_p_df[year] = templist_p.iloc[3:, 10].dropna().reset_index(drop=True)
 
 for i in range(1900,2051,10):
     plt.plot(life_M_df[i].diff()[3:50])
+    plt.title('M-cohort')
 plt.show()
 for i in range(1900,2051,10):
     plt.plot(life_M_p_df[i].diff()[3:50])
+    plt.title('M-period')
 plt.show()
 
 
@@ -113,15 +94,38 @@ plt.show()
 #       interpolated to the specific year.
 #    2. Scale the death shape to match the starting and ending years for that
 #       cohort, i.e. 1910-age 10 and 1920-age 20 for the cohort born in 1900.
+
+def decade_interp(yr, tgtdf):
+    # Calculate decade bookends to interpolate between
+    yr_tgts = [10 * np.floor(yr / 10), 10 * np.ceil(yr / 10)]
+    # Scale value fractionally based on year proximity
+    return (1 - 0.1 * (yr % 10)) * tgtdf[yr_tgts[0]] + 0.1 * (yr % 10) * tgtdf[yr_tgts[1]]
+
+
 for i in range(1900, 2051):
     if (i % 10) > 0:
-        i_tgts = [10 * np.floor(i / 10), 10 * np.ceil(i / 10)]
-        # Manually interpolate for each row:
-        life_F_df[i] = (1 - 0.1 * (i % 10)) * life_F_df[i_tgts[0]] + 0.1 * (i % 10) * life_F_df[i_tgts[1]]
-        life_M_df[i] = (1 - 0.1 * (i % 10)) * life_M_df[i_tgts[0]] + 0.1 * (i % 10) * life_M_df[i_tgts[1]]
-        life_F_p_df[i] = (1 - 0.1 * (i % 10)) * life_F_p_df[i_tgts[0]] + 0.1 * (i % 10) * life_F_p_df[i_tgts[1]]
-        life_M_p_df[i] = (1 - 0.1 * (i % 10)) * life_M_p_df[i_tgts[0]] + 0.1 * (i % 10) * life_M_p_df[i_tgts[1]]
-    # No "else", zero-modulo means decade year, so it's already assigned.
+        # Manually interpolate for each year
+        life_F_df[i] = decade_interp(i, life_F_df)
+        life_M_df[i] = decade_interp(i, life_M_df)
+        life_F_p_df[i] = decade_interp(i, life_F_p_df)
+        life_M_p_df[i] = decade_interp(i, life_M_p_df)
+    else:
+        # No math. Zero-modulo case is an even decade and already assigned.
+        # Defrag dataframe every ten to reduce warnings
+        life_F_df = life_F_df.copy()
+        life_M_df = life_M_df.copy()
+        life_F_p_df = life_F_p_df.copy()
+        life_M_p_df = life_M_p_df.copy()
+
+# for i in range(1900, 2051):
+#     if (i % 10) > 0:
+#         i_tgts = [10 * np.floor(i / 10), 10 * np.ceil(i / 10)]
+#         # Manually interpolate for each year
+#         life_F_df[i] = (1 - 0.1 * (i % 10)) * life_F_df[i_tgts[0]] + 0.1 * (i % 10) * life_F_df[i_tgts[1]]
+#         life_M_df[i] = (1 - 0.1 * (i % 10)) * life_M_df[i_tgts[0]] + 0.1 * (i % 10) * life_M_df[i_tgts[1]]
+#         life_F_p_df[i] = (1 - 0.1 * (i % 10)) * life_F_p_df[i_tgts[0]] + 0.1 * (i % 10) * life_F_p_df[i_tgts[1]]
+#         life_M_p_df[i] = (1 - 0.1 * (i % 10)) * life_M_p_df[i_tgts[0]] + 0.1 * (i % 10) * life_M_p_df[i_tgts[1]]
+#     # No "else". Zero-modulo means decade year, so it's already assigned.
 
 life_F_df = life_F_df.T.sort_index().copy()
 life_M_df = life_M_df.T.sort_index().copy()

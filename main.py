@@ -1,5 +1,5 @@
 if __name__ == '__main__':
-    print('running in main, this is expected')
+    print('(running main.py)')
 
 import pandas as pd
 import os
@@ -13,6 +13,7 @@ import matplotlib as mpl
 
 # Generate the actuarial data files (defaults to actuarialdata directory)
 import actuarial_calcs
+
 actuarial_calcs  # (this just runs the script, expect performance warnings)
 
 
@@ -29,7 +30,7 @@ plt.rc('ytick', labelsize=12)    # fontsize of the tick labels
 # plt.rc('legend', fontsize=12)    # legend fontsize
 # plt.rc('figure', titlesize=10)  # fontsize of the figure title
 
-# TODO (low priority): Either pull currentyear from data or move to config
+# TODO (low priority): Automate currentyear (pull from data or move to config)
 currentyear = 2023  # the last year of data available in the "names" folder
 maxyear = currentyear + 30
 
@@ -57,7 +58,7 @@ alive_M_p = pd.read_pickle('actuarialdata/life_M_p_df.pkl')
 
 
 # Gets the data raw from the website and pickles it.
-# TODO: move reload option to config
+# TODO: move reload option to config, move functionality to separate file?
 reload_birthtotals = True
 
 if reload_birthtotals:
